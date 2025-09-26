@@ -276,6 +276,7 @@ L'équipe de réservation`)
       console.log("[v0] - Port:", emailConfig.outgoingEmailPort)
       console.log("[v0] - From:", emailConfig.emailFromAddress)
       console.log("[v0] - Username configured:", emailConfig.outgoingEmailUsername ? "Yes" : "No")
+      console.log("[v0] - TLS enabled:", emailConfig.outgoingEmailUseTls)
 
       // Convert PDF URL to base64 for email service
       const response = await fetch(pdfUrl)
@@ -316,6 +317,22 @@ L'équipe de réservation`)
             }
 
             console.log("[v0] Sending email via SMTP...")
+            console.log("[v0] Final SMTP config being sent:")
+            console.log("[v0] - Host:", emailPayload.smtpConfig.host)
+            console.log(
+              "[v0] - Port:",
+              emailPayload.smtpConfig.port,
+              "(type:",
+              typeof emailPayload.smtpConfig.port,
+              ")",
+            )
+            console.log(
+              "[v0] - TLS:",
+              emailPayload.smtpConfig.useTls,
+              "(type:",
+              typeof emailPayload.smtpConfig.useTls,
+              ")",
+            )
 
             const apiResponse = await fetch("/api/send-email", {
               method: "POST",

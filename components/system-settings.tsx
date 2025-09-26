@@ -104,11 +104,24 @@ export function SystemSettings() {
       }))
 
       // Delete existing settings and insert new ones
-      await supabase.from("system_settings").delete().neq("id", "00000000-0000-0000-0000-000000000000")
+      const { error: deleteError } = await supabase
+        .from("system_settings")
+        .delete()
+        .neq("id", "00000000-0000-0000-0000-000000000000")
 
-      const { error } = await supabase.from("system_settings").insert(settingsArray)
+      if (deleteError) {
+        console.error("Error deleting old settings:", deleteError)
+        throw deleteError
+      }
 
-      if (error) throw error
+      const { error: insertError } = await supabase.from("system_settings").insert(settingsArray)
+
+      if (insertError) {
+        console.error("Error inserting new settings:", insertError)
+        throw insertError
+      }
+
+      await loadSettings()
 
       toast({
         title: "Paramètres sauvegardés",
