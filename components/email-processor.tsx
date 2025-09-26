@@ -231,18 +231,22 @@ L'équipe de réservation`)
         .from("system_settings")
         .select("setting_key, setting_value")
         .in("setting_key", [
-          "resendApiKey", // Resend API key
+          "outgoingEmailServer", // SMTP server
+          "outgoingEmailPort", // SMTP port
+          "outgoingEmailUsername", // SMTP username
+          "outgoingEmailPassword", // SMTP password
+          "outgoingEmailUseTls", // SMTP TLS
           "emailFromAddress", // From email address
         ])
 
       if (settingsError) {
-        console.error("[v0] Error loading Resend settings:", settingsError)
+        console.error("[v0] Error loading SMTP settings:", settingsError)
         throw new Error("Failed to load email configuration")
       }
 
       if (!settings || settings.length === 0) {
         console.error("[v0] No email settings found in database")
-        throw new Error("No email configuration found. Please configure Resend settings first.")
+        throw new Error("No email configuration found. Please configure SMTP settings first.")
       }
 
       const emailConfig = settings.reduce(
@@ -253,17 +257,25 @@ L'équipe de réservation`)
         {} as Record<string, any>,
       )
 
-      const requiredSettings = ["resendApiKey", "emailFromAddress"]
+      const requiredSettings = [
+        "outgoingEmailServer",
+        "outgoingEmailPort",
+        "outgoingEmailUsername",
+        "outgoingEmailPassword",
+        "emailFromAddress",
+      ]
       const missingSettings = requiredSettings.filter((key) => !emailConfig[key])
 
       if (missingSettings.length > 0) {
-        console.error("[v0] Missing email settings:", missingSettings)
+        console.error("[v0] Missing SMTP settings:", missingSettings)
         throw new Error(`Missing email configuration: ${missingSettings.join(", ")}`)
       }
 
-      console.log("[v0] Email configuration loaded successfully:")
+      console.log("[v0] SMTP configuration loaded successfully:")
+      console.log("[v0] - Server:", emailConfig.outgoingEmailServer)
+      console.log("[v0] - Port:", emailConfig.outgoingEmailPort)
       console.log("[v0] - From:", emailConfig.emailFromAddress)
-      console.log("[v0] - API Key configured:", emailConfig.resendApiKey ? "Yes" : "No")
+      console.log("[v0] - Username configured:", emailConfig.outgoingEmailUsername ? "Yes" : "No")
 
       // Convert PDF URL to base64 for email service
       const response = await fetch(pdfUrl)
@@ -294,9 +306,16 @@ L'équipe de réservation`)
                   },
                 ],
               },
+              smtpConfig: {
+                host: emailConfig.outgoingEmailServer,
+                port: emailConfig.outgoingEmailPort,
+                username: emailConfig.outgoingEmailUsername,
+                password: emailConfig.outgoingEmailPassword,
+                useTls: emailConfig.outgoingEmailUseTls === "true" || emailConfig.outgoingEmailUseTls === true,
+              },
             }
 
-            console.log("[v0] Sending email via Resend API...")
+            console.log("[v0] Sending email via SMTP...")
 
             const apiResponse = await fetch("/api/send-email", {
               method: "POST",
@@ -309,7 +328,7 @@ L'équipe de réservation`)
             const result = await apiResponse.json()
 
             if (result.success) {
-              console.log("[v0] Email sent successfully via Resend!")
+              console.log("[v0] Email sent successfully via SMTP!")
               console.log("[v0] Email ID:", result.emailId)
 
               resolve({

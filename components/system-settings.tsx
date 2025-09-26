@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Settings, Mail, FileText, Save, CheckCircle, Key } from "lucide-react"
+import { Settings, Mail, FileText, Save, CheckCircle, Server } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { createClient } from "@/lib/supabase/client"
 
@@ -21,7 +21,11 @@ interface SystemSettings {
   incomingEmailUseTls: boolean
   incomingEmailFolder: string
   emailSubjectFilter: string
-  resendApiKey: string
+  outgoingEmailServer: string
+  outgoingEmailPort: string
+  outgoingEmailUsername: string
+  outgoingEmailPassword: string
+  outgoingEmailUseTls: boolean
   emailFromAddress: string
   autoProcess: boolean
   hideRatesDefault: boolean
@@ -40,7 +44,11 @@ export function SystemSettings() {
     incomingEmailUseTls: true,
     incomingEmailFolder: "INBOX",
     emailSubjectFilter: "Handler – New Bookings",
-    resendApiKey: "",
+    outgoingEmailServer: "smtp.gmail.com",
+    outgoingEmailPort: "587",
+    outgoingEmailUsername: "",
+    outgoingEmailPassword: "",
+    outgoingEmailUseTls: true,
     emailFromAddress: "",
     autoProcess: true,
     hideRatesDefault: true,
@@ -253,32 +261,65 @@ export function SystemSettings() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Key className="h-5 w-5" />
-            Configuration Resend (Envoi d'emails)
+            <Server className="h-5 w-5" />
+            Serveur Email d'Envoi (SMTP)
           </CardTitle>
-          <CardDescription>Configuration de l'API Resend pour l'envoi d'emails avec pièces jointes</CardDescription>
+          <CardDescription>Configuration SMTP pour l'envoi d'emails avec pièces jointes</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="resend-api-key">Clé API Resend</Label>
-            <Input
-              id="resend-api-key"
-              type="password"
-              placeholder="re_xxxxxxxxxxxxxxxxxxxxxxxxxx"
-              value={settings.resendApiKey}
-              onChange={(e) => setSettings({ ...settings, resendApiKey: e.target.value })}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="outgoing-email-server">Serveur SMTP</Label>
+              <Input
+                id="outgoing-email-server"
+                value={settings.outgoingEmailServer}
+                onChange={(e) => setSettings({ ...settings, outgoingEmailServer: e.target.value })}
+                placeholder="smtp.gmail.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="outgoing-email-port">Port SMTP</Label>
+              <Input
+                id="outgoing-email-port"
+                value={settings.outgoingEmailPort}
+                onChange={(e) => setSettings({ ...settings, outgoingEmailPort: e.target.value })}
+                placeholder="587"
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="outgoing-email-username">Nom d'utilisateur SMTP</Label>
+              <Input
+                id="outgoing-email-username"
+                type="email"
+                placeholder="envoi@votre-domaine.com"
+                value={settings.outgoingEmailUsername}
+                onChange={(e) => setSettings({ ...settings, outgoingEmailUsername: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="outgoing-email-password">Mot de passe SMTP</Label>
+              <Input
+                id="outgoing-email-password"
+                type="password"
+                placeholder="••••••••"
+                value={settings.outgoingEmailPassword}
+                onChange={(e) => setSettings({ ...settings, outgoingEmailPassword: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label>Utiliser TLS/SSL (SMTP)</Label>
+              <p className="text-sm text-muted-foreground">Active la connexion sécurisée TLS/SSL pour l'envoi</p>
+            </div>
+            <Switch
+              checked={settings.outgoingEmailUseTls}
+              onCheckedChange={(checked) => setSettings({ ...settings, outgoingEmailUseTls: checked })}
             />
-            <p className="text-sm text-muted-foreground">
-              Obtenez votre clé API sur{" "}
-              <a
-                href="https://resend.com/api-keys"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 hover:underline"
-              >
-                resend.com/api-keys
-              </a>
-            </p>
           </div>
 
           <div className="space-y-2">
@@ -290,19 +331,19 @@ export function SystemSettings() {
               value={settings.emailFromAddress}
               onChange={(e) => setSettings({ ...settings, emailFromAddress: e.target.value })}
             />
-            <p className="text-sm text-muted-foreground">Cette adresse doit être vérifiée dans votre compte Resend</p>
+            <p className="text-sm text-muted-foreground">Cette adresse apparaîtra comme expéditeur des emails</p>
           </div>
 
           <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-800">
             <div className="flex items-start gap-3">
               <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
               <div>
-                <p className="font-medium text-green-900 dark:text-green-100">Avantages de Resend</p>
+                <p className="font-medium text-green-900 dark:text-green-100">Configuration SMTP classique</p>
                 <p className="text-sm text-green-700 dark:text-green-300">
-                  • Compatible avec Vercel Edge Runtime
+                  • Compatible avec tous les serveurs SMTP (Gmail, Outlook, serveurs privés)
                   <br />• Support natif des pièces jointes PDF
-                  <br />• Pas de configuration SMTP complexe
-                  <br />• Délivrabilité optimisée
+                  <br />• Utilise vos propres paramètres SMTP
+                  <br />• Proxy json2smtp pour compatibilité Vercel
                 </p>
               </div>
             </div>
