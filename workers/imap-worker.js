@@ -37,12 +37,29 @@ async function start() {
   // Open mailbox
   await client.mailboxOpen("INBOX");
 
+  // Rechercher uniquement les mails non lus
+  let searchCriteria = ['UNSEEN'];
+  let fetchOptions = {
+    envelope: true,
+    bodyStructure: true,
+    source: true
+  };
+
   // Use IDLE and fetch unseen messages matching subject
-  for await (const msg of client.fetch({ seen: false }, { envelope: true, source: true })) {
+  for await (let msg of client.fetch({ seen: false }, {
+    envelope: true,
+    bodyStructure: true,
+    source: true,
+    uid: true,
+    modseq: true
+  })) {
     try {
       const subj = (msg.envelope?.subject || "").toString();
       console.log("");
+      console.log("📩 Nouveau mail :", msg.envelope.subject);
       console.log("Email, sujet:", subj);
+      console.log("Expéditeur :", parsed.from.text);
+      console.log("Nombre de pièces jointes :", parsed.attachments.length);
       console.log("");
       if (!subj.includes("Handler - New Bookings")) {
         console.log("");
@@ -52,7 +69,7 @@ async function start() {
         await client.messageFlagsAdd(msg.uid, ["\\Seen"]);
         continue;
       }
-      
+
       console.log("");
       console.log("Email trouvé, sujet:", subj); // <-- Ajout pour debug
       console.log("");
