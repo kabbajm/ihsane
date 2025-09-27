@@ -1,98 +1,83 @@
-import { type NextRequest, NextResponse } from "next/server"
-// 1. Importer Nodemailer
-import nodemailer from "nodemailer"
+// app/api/send-email/route.ts
+import { type NextRequest, NextResponse } from "next/server";
+import nodemailer from "nodemailer";
 
-// Définir les types pour la requête
 type Attachment = {
-  filename: string
-  content: string // Base64 content
-}
+  filename: string;
+  content: string; // Base64
+};
 
 type EmailRequestBody = {
   emailData: {
-    from: string
-    to: string | string[]
-    subject: string
-    html?: string
-    text?: string
-    attachments?: Attachment[]
-  }
-  // Réintroduction de la configuration SMTP pour l'analyse
-  smtpConfig: {
-    host: string
-    port: string | number
-    username: string
-    password: string
-  }
+    from?: string;
+    to: string | string[];
+    subject: string;
+    html?: string;
+    text?: string;
+    attachments?: Attachment[];
+  };
+};
+
+function envRequired(name: string) {
+  const v = process.env[name];
+  if (!v) throw new Error(`Missing required env var: ${name}`);
+  return v;
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as EmailRequestBody
-    const { emailData, smtpConfig } = body
+    const body = (await request.json()) as EmailRequestBody;
+    const { emailData } = body;
 
-    console.log("[v2] Server: Received email request for Nodemailer")
-    console.log("[v2] Server: From:", emailData.from)
-    console.log("[v2] Server: To:", emailData.to)
-    console.log("[v2] Server: SMTP Server:", smtpConfig?.host)
-
-    // 2. Validation de la configuration SMTP
-    if (!smtpConfig || !smtpConfig.host || !smtpConfig.port || !smtpConfig.username || !smtpConfig.password) {
-      throw new Error("SMTP configuration is incomplete. Please check your email settings.")
+    if (!emailData || !emailData.to || !emailData.subject) {
+      return NextResponse.json({ success: false, error: "Missing emailData fields" }, { status: 400 });
     }
 
-    // 3. Créer le Transporter Nodemailer
+    // Read SMTP credentials from server environment — DO NOT expect them from client
+    const SMTP_HOST = envRequired("SMTP_HOST");
+    const SMTP_PORT = Number(process.env.SMTP_PORT || "587");
+    const SMTP_USER = envRequired("SMTP_USER");
+    const SMTP_PASS = envRequired("SMTP_PASS");
+
     const transporter = nodemailer.createTransport({
-      host: smtpConfig.host,
-      port: Number.parseInt(String(smtpConfig.port)), // Assurer que le port est un nombre
-      secure: Number.parseInt(String(smtpConfig.port)) === 465, // Utilisez TLS si le port est 465
+      host: SMTP_HOST,
+      port: SMTP_PORT,
+      secure: SMTP_PORT === 465,
       auth: {
-        user: smtpConfig.username,
-        pass: smtpConfig.password,
+        user: SMTP_USER,
+        pass: SMTP_PASS,
       },
-    })
-    
-    // 4. Préparer les pièces jointes au format Nodemailer
-    // Nodemailer accepte directement le contenu Base64 (ou autre)
-    const attachmentsForNodemailer = (emailData.attachments || []).map(att => ({
-      filename: att.filename,
-      content: att.content, // Le contenu est supposé être en Base64
-      encoding: 'base64' // Indiquer à Nodemailer que le contenu est Base64
-    }))
+    });
 
-    // 5. Envoyer l'e-mail
-    const info = await transporter.sendMail({
-      from: emailData.from,
-      // Nodemailer gère les chaînes ou les tableaux pour 'to'
-      to: Array.isArray(emailData.to) ? emailData.to.join(", ") : emailData.to,
+    const mailOptions: any = {
+      from: emailData.from || process.env.EMAIL_FROM || SMTP_USER,
+      to: emailData.to,
       subject: emailData.subject,
-      html: emailData.html || undefined, // Préférer HTML si disponible
-      text: emailData.text || undefined, // Fallback en texte
-      attachments: attachmentsForNodemailer,
-    })
+      text: emailData.text,
+      html: emailData.html,
+      attachments: [],
+    };
 
-    console.log("[v2] Server: Email sent successfully via Nodemailer!")
-    console.log("[v2] Server: Message ID:", info.messageId)
-    // Utile pour le débogage: console.log("[v2] Server: Server Response:", info.response)
+    if (Array.isArray(emailData.attachments)) {
+      // Basic validation: ensure attachments are base64 strings and filenames are safe
+      mailOptions.attachments = emailData.attachments.map((att) => ({
+        filename: att.filename.replace(/\.\./g, ""), // naive sanitize
+        content: att.content,
+        encoding: "base64",
+      }));
+    }
 
-    // 6. Réponse de succès
+    // send
+    const info = await transporter.sendMail(mailOptions);
+
     return NextResponse.json({
       success: true,
       emailId: info.messageId,
-      details: `Email sent successfully via Nodemailer. Response: ${info.response}`,
-    })
+      details: info,
+    });
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred."
-    
-    console.error("[v2] Server: Email sending error:", errorMessage)
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: errorMessage,
-        details: "Failed to send email via Nodemailer",
-      },
-      { status: 500 },
-    )
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error("[send-email] error:", errorMessage);
+    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
   }
 }
