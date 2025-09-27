@@ -7,6 +7,7 @@ import fs from "fs";
 import path from "path";
 import { execFile } from "child_process";
 import fetch from "node-fetch";
+import { simpleParser } from "mailparser";
 import FormData from "form-data";
 
 const IMAP_HOST = "imap.gmail.com"; // or from env
@@ -37,14 +38,6 @@ async function start() {
   // Open mailbox
   await client.mailboxOpen("INBOX");
 
-  // Rechercher uniquement les mails non lus
-  let searchCriteria = ['UNSEEN'];
-  let fetchOptions = {
-    envelope: true,
-    bodyStructure: true,
-    source: true
-  };
-
   // Use IDLE and fetch unseen messages matching subject
   for await (let msg of client.fetch({ seen: false }, {
     envelope: true,
@@ -55,13 +48,13 @@ async function start() {
   })) {
     try {
       const subj = (msg.envelope?.subject || "").toString();
+      const parsed = await simpleParser(msg.source);
       console.log("");
-      console.log("📩 Nouveau mail :", msg.envelope.subject);
       console.log("Email, sujet:", subj);
       console.log("Expéditeur :", parsed.from.text);
       console.log("Nombre de pièces jointes :", parsed.attachments.length);
       console.log("");
-      if (!subj.includes("Handler - New Bookings")) {
+      if (!subj.includes("Handler") && !subj.includes("New Bookings")) {
         console.log("");
         console.log("Email ignoré, sujet:", subj); // <-- Ajout pour debug
         console.log("");
